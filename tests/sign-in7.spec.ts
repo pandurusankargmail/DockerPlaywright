@@ -18,7 +18,7 @@ await page.getByRole('textbox', { name: 'Email' }).fill('demosaas@yopmail.com');
       await loginBtn.click();
       await page.waitForTimeout(1000);
     }
-    await throttle(500);
+    await throttle(1500);
     // Wait for login to complete
     await page.waitForURL(/.*\/lennox.*/);
     await page.getByTestId('user-settings').hover();
