@@ -73,6 +73,7 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # ✅ Merge reports into single HTML report
       - name: Merge into HTML report
         run: |
           npx playwright merge-reports \
