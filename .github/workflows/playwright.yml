@@ -16,24 +16,17 @@ jobs:
       matrix:
         shard: [1, 2, 3, 4]
 
-    timeout-minutes: 60
-
     container:
       image: mcr.microsoft.com/playwright:v1.58.0-noble
 
-    env:
-      CI: true
-
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Install bun and dependencies
         run: |
           apt-get update && apt-get install -y unzip curl ca-certificates && rm -rf /var/lib/apt/lists/* || true
           curl -fsSL https://bun.sh/install | bash
           export PATH="$HOME/.bun/bin:$PATH"
-          bun --version
           bun install
 
       - name: Run Playwright tests (shard)
@@ -45,7 +38,7 @@ jobs:
             --workers=2 \
             --reporter=blob
 
-      # ✅ Upload ONLY zip files (important fix)
+      # ✅ FIXED HERE
       - name: Upload blob report
         if: always()
         uses: actions/upload-artifact@v4
@@ -60,21 +53,18 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Download all blob reports
         uses: actions/download-artifact@v4
         with:
           path: all-blob-reports
 
-      # ✅ Debug (helps if anything breaks)
+      # ✅ DEBUG
       - name: Debug downloaded files
-        run: |
-          echo "Downloaded structure:"
-          find all-blob-reports -type f
+        run: find all-blob-reports -type f
 
-      # ✅ Flatten all zip files into one folder
+      # ✅ CRITICAL FIX
       - name: Prepare blob reports
         run: |
           mkdir merged-blobs
@@ -95,4 +85,28 @@ jobs:
         with:
           name: playwright-report
           path: playwright-report/
-          retention-days: 30
+
+  deploy-report:
+    name: Deploy Playwright Report to GitHub Pages
+    needs: merge-reports
+    runs-on: ubuntu-latest
+
+    permissions:
+      pages: write
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Download merged report
+        uses: actions/download-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: playwright-report
+
+      - uses: actions/deploy-pages@v4
