@@ -45,12 +45,13 @@ jobs:
             --workers=2 \
             --reporter=blob
 
+      # ✅ Upload ONLY zip files (important fix)
       - name: Upload blob report
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: blob-report-${{ matrix.shard }}
-          path: blob-report/
+          path: blob-report/*.zip
           retention-days: 7
 
   merge-reports:
@@ -67,14 +68,27 @@ jobs:
         with:
           path: all-blob-reports
 
+      # ✅ Debug (helps if anything breaks)
+      - name: Debug downloaded files
+        run: |
+          echo "Downloaded structure:"
+          find all-blob-reports -type f
+
+      # ✅ Flatten all zip files into one folder
+      - name: Prepare blob reports
+        run: |
+          mkdir merged-blobs
+          find all-blob-reports -name '*.zip' -exec cp {} merged-blobs/ \;
+
       - name: Install dependencies
         run: npm ci
 
+      # ✅ Merge reports into single HTML report
       - name: Merge into HTML report
         run: |
           npx playwright merge-reports \
             --reporter html \
-            ./all-blob-reports
+            ./merged-blobs
 
       - name: Upload consolidated HTML report
         uses: actions/upload-artifact@v4
