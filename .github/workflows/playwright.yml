@@ -1,3 +1,7 @@
+# Execute playwright tests
+# Consolidated blob reports
+# publish the githubg page
+
 name: Playwright Tests
 
 on:
