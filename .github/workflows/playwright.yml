@@ -96,6 +96,11 @@ jobs:
     needs: merge-reports
     runs-on: ubuntu-latest
 
+  # ✅ REQUIRED
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
     permissions:
       pages: write
       id-token: write
@@ -114,4 +119,7 @@ jobs:
         with:
           path: playwright-report
 
-      - uses: actions/deploy-pages@v4
+    # ✅ IMPORTANT: must have id
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
