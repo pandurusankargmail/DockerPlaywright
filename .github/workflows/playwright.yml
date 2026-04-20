@@ -8,7 +8,7 @@ name: Playwright Tests
 
 on:
   push:
-    branches: [main, master, githubpage]
+    branches: [main, master, pdf, githubpage]
   pull_request:
     branches: [main, master]
 
@@ -65,11 +65,11 @@ jobs:
       pages: write
       id-token: write
       pull-requests: write
-      
+
     environment:
       name: github-pages
-      url: ${{ steps.deploy_pages.outputs.page_url }}
-      
+      url: ${{ steps.pages_deploy_step.outputs.page_url }}
+
     steps:
       - uses: actions/checkout@v4
 
@@ -120,7 +120,6 @@ jobs:
           name: playwright-report
           path: playwright-report
 
-      # ✅ Add summary to GitHub UI
       - name: Add test summary
         run: |
           echo "## 🧪 Playwright Test Results" >> $GITHUB_STEP_SUMMARY
@@ -128,7 +127,6 @@ jobs:
           echo "- ✅ Sharded execution completed" >> $GITHUB_STEP_SUMMARY
           echo "- 📦 Reports merged successfully" >> $GITHUB_STEP_SUMMARY
 
-      # ✅ Setup Pages
       - uses: actions/configure-pages@v5
 
       - name: Upload Pages artifact
@@ -137,16 +135,15 @@ jobs:
           path: playwright-report
 
       - name: Deploy to GitHub Pages
-        id: deploy_pages
+        id: pages_deploy_step   # ✅ UNIQUE ID (no conflicts)
         uses: actions/deploy-pages@v4
 
-      # ✅ PR Comment
       - name: Comment PR with report link
         if: github.event_name == 'pull_request'
         uses: actions/github-script@v7
         with:
           script: |
-            const url = "${{ steps.deployment.outputs.page_url }}";
+            const url = "${{ steps.pages_deploy_step.outputs.page_url }}";
 
             const body = `## 🧪 Playwright Report
 
@@ -161,8 +158,3 @@ jobs:
               repo: context.repo.repo,
               body
             });
-
-      # ✅ IMPORTANT: add id
-      - name: Deploy to GitHub Pages
-        id: deploy_pages
-        uses: actions/deploy-pages@v4
