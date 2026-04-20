@@ -28,19 +28,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install bun and dependencies
+      - name: Install dependencies
         run: |
-            apt-get update && apt-get install -y unzip curl ca-certificates
-            curl -fsSL https://bun.sh/install | bash
-            export PATH="$HOME/.bun/bin:$PATH"
-            bun install
+          apt-get update && apt-get install -y curl ca-certificates unzip
+          npm ci || npm install
 
       - name: Run Playwright tests (shard)
         continue-on-error: true
         run: |
-          export PATH="$HOME/.bun/bin:$PATH"
-
-          bunx playwright test \
+          npx playwright test \
             --project=chromium \
             --shard=${{ matrix.shard }}/4 \
             --workers=2 \
@@ -68,31 +64,36 @@ jobs:
 
     environment:
       name: github-pages
-      url: ${{ steps.pages_deploy_step.outputs.page_url }}
+      url: ${{ steps.deploy_pages.outputs.page_url }}
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Download blob reports
+      - name: Download all blob reports
         uses: actions/download-artifact@v4
         with:
           path: all-blob-reports
 
-      - name: Flatten blob reports
+      - name: Prepare blob reports safely
         run: |
-          mkdir merged-blobs
+          mkdir -p merged-blobs
+
+          echo "==== DOWNLOADED FILES ===="
+          find all-blob-reports -type f || true
+
           find all-blob-reports -name '*.zip' -exec cp {} merged-blobs/ \;
 
-          echo "==== BLOBS ===="
-          ls -l merged-blobs
+          echo "==== MERGED BLOBS ===="
+          ls -l merged-blobs || true
 
-          COUNT=$(ls merged-blobs/*.zip 2>/dev/null | wc -l)
+          COUNT=$(ls merged-blobs/*.zip 2>/dev/null | wc -l || echo 0)
+
           if [ "$COUNT" -eq 0 ]; then
-            echo "❌ No blob reports found!"
+            echo "❌ No blob reports found. Merge cannot continue."
             exit 1
           fi
 
-      - name: Install dependencies
+      - name: Install Playwright (required for merge)
         run: |
           npm ci || npm install
           npx playwright install --with-deps
@@ -100,12 +101,12 @@ jobs:
       - name: Merge reports
         run: |
           npx playwright merge-reports \
-            --reporter html \            
-            ./merged-blobs
+            --reporter html \
+            merged-blobs
 
-      - name: Validate report
+      - name: Validate report output
         run: |
-          echo "==== REPORT ===="
+          echo "==== REPORT STRUCTURE ===="
           ls -R playwright-report
 
           if [ ! -f "playwright-report/index.html" ]; then
@@ -113,18 +114,18 @@ jobs:
             exit 1
           fi
 
-      - name: Upload HTML report (artifact)
+      - name: Upload HTML report artifact
         uses: actions/upload-artifact@v4
         with:
           name: playwright-report
           path: playwright-report
 
-      - name: Add test summary
+      - name: Add GitHub summary
         run: |
           echo "## 🧪 Playwright Test Results" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
           echo "- ✅ Sharded execution completed" >> $GITHUB_STEP_SUMMARY
           echo "- 📦 Reports merged successfully" >> $GITHUB_STEP_SUMMARY
+          echo "- 🌐 Deployed to GitHub Pages" >> $GITHUB_STEP_SUMMARY
 
       - uses: actions/configure-pages@v5
 
@@ -134,7 +135,7 @@ jobs:
           path: playwright-report
 
       - name: Deploy to GitHub Pages
-        id: pages_deploy_step   # ✅ UNIQUE ID (no conflicts)
+        id: deploy_pages
         uses: actions/deploy-pages@v4
 
       - name: Comment PR with report link
@@ -142,13 +143,14 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
-            const url = "${{ steps.pages_deploy_step.outputs.page_url }}";
+            const url = "${{ steps.deploy_pages.outputs.page_url }}";
 
             const body = `## 🧪 Playwright Report
 
-            ✅ Sharded tests completed and merged.
+            ✅ Sharded tests completed  
+            📦 Reports merged successfully  
 
-            🔗 **View Full Report:** ${url}
+            🔗 **View Report:** ${url}
             `;
 
             github.rest.issues.createComment({
