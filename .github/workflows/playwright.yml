@@ -84,6 +84,7 @@ jobs:
         run: |
           npx playwright merge-reports \
             --reporter html \
+            --output playwright-report \
             ./merged-blobs
 
       - name: Upload consolidated HTML report
