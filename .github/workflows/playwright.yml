@@ -9,9 +9,9 @@ name: Playwright Tests
 
 on:
   push:
-    branches: [main, master, githubpage]
+    branches: [main, master, pdf, githubpage]
   pull_request:
-    branches: [main, master, githubpage]
+    branches: [main, master]
 
 jobs:
   test:
@@ -29,8 +29,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Verify Playwright version
-        run: npx playwright --version
+      - name: Install dependencies
+        run: |
+          apt-get update && apt-get install -y curl ca-certificates unzip
+          npm ci || npm install
 
       - name: Run Playwright tests (shard)
         continue-on-error: true
@@ -47,6 +49,7 @@ jobs:
         with:
           name: blob-report-${{ matrix.shard }}
           path: blob-report
+          retention-days: 7
 
 
   merge-and-deploy:
@@ -67,26 +70,34 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Download blob reports
+      - name: Download all blob reports
         uses: actions/download-artifact@v4
         with:
           path: all-blob-reports
 
-      - name: Prepare blobs safely
+      - name: Prepare blob reports safely
         run: |
           mkdir -p merged-blobs
 
+          echo "==== DOWNLOADED FILES ===="
+          find all-blob-reports -type f || true
+
           find all-blob-reports -name '*.zip' -exec cp {} merged-blobs/ \;
 
-          echo "==== BLOBS ===="
-          ls -l merged-blobs
+          echo "==== MERGED BLOBS ===="
+          ls -l merged-blobs || true
 
           COUNT=$(ls merged-blobs/*.zip 2>/dev/null | wc -l || echo 0)
 
           if [ "$COUNT" -eq 0 ]; then
-            echo "❌ No blob reports found → tests likely failed"
-            exit 254
+            echo "❌ No blob reports found. Merge cannot continue."
+            exit 1
           fi
+
+      - name: Install Playwright (required for merge)
+        run: |
+          npm ci || npm install
+          npx playwright install --with-deps
 
       - name: Merge reports
         run: |
@@ -94,13 +105,17 @@ jobs:
             --reporter html \
             merged-blobs
 
-      - name: Validate report
+      - name: Validate report output
         run: |
+          echo "==== REPORT STRUCTURE ===="
           ls -R playwright-report
 
-          test -f playwright-report/index.html || exit 254
+          if [ ! -f "playwright-report/index.html" ]; then
+            echo "❌ Merge failed: index.html missing"
+            exit 1
+          fi
 
-      - name: Upload report artifact
+      - name: Upload HTML report artifact
         uses: actions/upload-artifact@v4
         with:
           name: playwright-report
@@ -111,6 +126,7 @@ jobs:
           echo "## 🧪 Playwright Test Results" >> $GITHUB_STEP_SUMMARY
           echo "- ✅ Sharded execution completed" >> $GITHUB_STEP_SUMMARY
           echo "- 📦 Reports merged successfully" >> $GITHUB_STEP_SUMMARY
+          echo "- 🌐 Deployed to GitHub Pages" >> $GITHUB_STEP_SUMMARY
 
       - uses: actions/configure-pages@v5
 
@@ -130,9 +146,17 @@ jobs:
           script: |
             const url = "${{ steps.deploy_pages.outputs.page_url }}";
 
+            const body = `## 🧪 Playwright Report
+
+            ✅ Sharded tests completed  
+            📦 Reports merged successfully  
+
+            🔗 **View Report:** ${url}
+            `;
+
             github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: `## 🧪 Playwright Report\n\n🔗 ${url}`
+              body
             });
