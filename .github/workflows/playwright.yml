@@ -100,8 +100,7 @@ jobs:
       - name: Merge reports
         run: |
           npx playwright merge-reports \
-            --reporter html \
-            --output playwright-report \
+            --reporter html \            
             ./merged-blobs
 
       - name: Validate report
