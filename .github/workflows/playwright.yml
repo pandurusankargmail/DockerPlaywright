@@ -65,7 +65,11 @@ jobs:
       pages: write
       id-token: write
       pull-requests: write
-
+      
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy_pages.outputs.page_url }}
+      
     steps:
       - uses: actions/checkout@v4
 
@@ -133,7 +137,7 @@ jobs:
           path: playwright-report
 
       - name: Deploy to GitHub Pages
-        id: deployment
+        id: deploy_pages
         uses: actions/deploy-pages@v4
 
       # ✅ PR Comment
@@ -160,5 +164,5 @@ jobs:
 
       # ✅ IMPORTANT: add id
       - name: Deploy to GitHub Pages
-        id: deployment
+        id: deploy_pages
         uses: actions/deploy-pages@v4
