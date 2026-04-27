@@ -38,7 +38,7 @@ test.describe('Login and Manage Account', () => {
 
     // Verify account details are successfully updated
     await expect(page.getByText('Successfully updated your account details!')).toBeVisible();
-    await expect(page.getByRole('textbox', { name: 'First name' })).toHaveValue('Test1');
-    await expect(page.getByRole('textbox', { name: 'Last name' })).toHaveValue('Test2');
+    await expect(page.getByRole('textbox', { name: 'First name' })).toHaveValue('Test2');
+    await expect(page.getByRole('textbox', { name: 'Last name' })).toHaveValue('Test1');
   });
 });

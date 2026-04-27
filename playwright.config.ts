@@ -1,4 +1,8 @@
+/// <reference types="node" />
 import { defineConfig, devices } from '@playwright/test';
+import * as fs from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
 
 /**
  * Read environment variables from file.
@@ -12,6 +16,51 @@ import { defineConfig, devices } from '@playwright/test';
  * See https://playwright.dev/docs/test-configuration.
  */
 const isCI = !!process.env.CI;
+const allureResultsDir = path.resolve(process.cwd(), 'allure-results');
+
+function writeAllureMetadata(): void {
+  fs.mkdirSync(allureResultsDir, { recursive: true });
+
+  const categories = [
+    {
+      name: 'Passed Tests',
+      matchedStatuses: ['passed'],
+    },
+    {
+      name: 'Failed Tests',
+      matchedStatuses: ['failed'],
+    },
+    {
+      name: 'Broken Tests',
+      matchedStatuses: ['broken'],
+    },
+    {
+      name: 'Skipped Tests',
+      matchedStatuses: ['skipped'],
+    },
+  ];
+
+  fs.writeFileSync(
+    path.join(allureResultsDir, 'categories.json'),
+    JSON.stringify(categories, null, 2),
+    'utf-8',
+  );
+
+  const environmentProperties = [
+    `Browser=${process.env.BROWSER || 'chromium'}`,
+    `Base URL=${process.env.BASE_URL || 'http://localhost:3000'}`,
+    `OS=${os.type()} ${os.release()}`,
+    `CI=${String(isCI)}`,
+  ].join('\n');
+
+  fs.writeFileSync(
+    path.join(allureResultsDir, 'environment.properties'),
+    `${environmentProperties}\n`,
+    'utf-8',
+  );
+}
+
+writeAllureMetadata();
 
 export default defineConfig({
   testDir: './tests',
